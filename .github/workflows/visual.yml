@@ -1,0 +1,32 @@
+name: Visual diff
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    # Wait for GitHub Pages deploy to settle before snapping screenshots.
+    # The pages-build-deployment workflow runs in parallel; this 60s sleep is
+    # a pragmatic floor. Adjust if you find pages aren't ready in time.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for GitHub Pages deploy
+        if: github.event_name == 'push'
+        run: sleep 60
+
+      - name: Run SnapDiff visual test
+        uses: corralimited/snapdiff/github-action@dev
+        with:
+          api-key: ${{ secrets.SNAPDIFF_API_KEY }}
+          api-url: https://snapdiff-production.up.railway.app
+          project: ${{ vars.SNAPDIFF_PROJECT_SLUG }}
+          pages: |
+            homepage=${{ vars.SITE_URL }}/index.html
+            pricing=${{ vars.SITE_URL }}/pricing.html
+            gallery=${{ vars.SITE_URL }}/gallery.html
+            contact=${{ vars.SITE_URL }}/form.html
