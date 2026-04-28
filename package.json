@@ -10,6 +10,6 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.59.0",
-    "@snapdiff/playwright": "file:./vendor/snapdiff-playwright-0.1.1.tgz"
+    "@snapdiff/playwright": "file:./vendor/snapdiff-playwright-0.1.2.tgz"
   }
 }
