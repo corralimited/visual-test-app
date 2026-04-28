@@ -1,0 +1,34 @@
+name: Visual diff (Playwright reporter)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install npm
+        run: npm install --no-audit --no-fund
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Wait for GitHub Pages deploy
+        if: github.event_name == 'push'
+        run: sleep 60
+
+      - name: Run Playwright tests + SnapDiff reporter
+        run: npx playwright test
+        env:
+          SNAPDIFF_API_KEY: ${{ secrets.SNAPDIFF_API_KEY }}
+          SITE_URL: https://corralimited.github.io/visual-test-app
