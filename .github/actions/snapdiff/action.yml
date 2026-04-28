@@ -51,13 +51,16 @@ runs:
     - name: Parse pages input
       id: parse-pages
       shell: bash
+      env:
+        SD_PAGES_INPUT: ${{ inputs.pages }}
       run: |
-        # Convert "name=url" lines into JSON array
-        PAGES_JSON=$(echo '${{ inputs.pages }}' | grep '=' | while IFS='=' read -r name url; do
+        # Convert "name=url" lines into a compact JSON array.
+        # `jq -sc` keeps it on a single line so it survives $GITHUB_OUTPUT.
+        PAGES_JSON=$(printf '%s\n' "$SD_PAGES_INPUT" | grep '=' | while IFS='=' read -r name url; do
           name=$(echo "$name" | xargs)
           url=$(echo "$url" | xargs)
           [ -n "$name" ] && [ -n "$url" ] && echo "{\"name\":\"$name\",\"url\":\"$url\"}"
-        done | jq -s '.')
+        done | jq -sc '.')
         echo "pages_json=$PAGES_JSON" >> $GITHUB_OUTPUT
 
     - name: Create build
