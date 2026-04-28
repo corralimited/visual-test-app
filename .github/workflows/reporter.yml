@@ -31,4 +31,5 @@ jobs:
         run: npx playwright test
         env:
           SNAPDIFF_API_KEY: ${{ secrets.SNAPDIFF_API_KEY }}
+          SNAPDIFF_PROJECT_SLUG: ${{ vars.SNAPDIFF_PROJECT_SLUG }}
           SITE_URL: https://corralimited.github.io/visual-test-app

@@ -22,7 +22,8 @@ export default defineConfig({
     [
       '@snapdiff/playwright/reporter',
       {
-        project: 'visual-test-app',
+        // Slug provided by repo variable so URL action and reporter share one project.
+        project: process.env.SNAPDIFF_PROJECT_SLUG ?? 'visual-test-app',
         apiUrl: 'https://snapdiff-production.up.railway.app',
         // apiKey defaults to SNAPDIFF_API_KEY env var
       },
