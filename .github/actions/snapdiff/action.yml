@@ -1,0 +1,155 @@
+name: 'SnapDiff Visual Test'
+description: 'Run visual regression tests with SnapDiff. Compares pages against baselines and reports results as a commit status.'
+branding:
+  icon: 'eye'
+  color: 'purple'
+
+inputs:
+  api-key:
+    description: 'SnapDiff API key (sd_live_xxx or sd_test_xxx)'
+    required: true
+  project:
+    description: 'Project slug or ID'
+    required: true
+  pages:
+    description: |
+      Pages to test, one per line in "name=url" format.
+      Example:
+        homepage=https://staging.myapp.com/
+        pricing=https://staging.myapp.com/pricing
+    required: true
+  api-url:
+    description: 'SnapDiff API base URL (default: https://api.snapdiff.dev)'
+    required: false
+    default: 'https://api.snapdiff.dev'
+  wait:
+    description: 'Wait for build to complete and report results (default: true)'
+    required: false
+    default: 'true'
+  wait-timeout:
+    description: 'Maximum minutes to wait for build completion (default: 5)'
+    required: false
+    default: '5'
+
+outputs:
+  build-id:
+    description: 'The SnapDiff build ID'
+    value: ${{ steps.create-build.outputs.build_id }}
+  status:
+    description: 'Build status (approved, changes_requested, failed)'
+    value: ${{ steps.poll-build.outputs.status }}
+  changed-count:
+    description: 'Number of pages with visual changes'
+    value: ${{ steps.poll-build.outputs.changed_count }}
+  review-url:
+    description: 'URL to review the build'
+    value: ${{ steps.create-build.outputs.review_url }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Parse pages input
+      id: parse-pages
+      shell: bash
+      run: |
+        # Convert "name=url" lines into JSON array
+        PAGES_JSON=$(echo '${{ inputs.pages }}' | grep '=' | while IFS='=' read -r name url; do
+          name=$(echo "$name" | xargs)
+          url=$(echo "$url" | xargs)
+          [ -n "$name" ] && [ -n "$url" ] && echo "{\"name\":\"$name\",\"url\":\"$url\"}"
+        done | jq -s '.')
+        echo "pages_json=$PAGES_JSON" >> $GITHUB_OUTPUT
+
+    - name: Create build
+      id: create-build
+      shell: bash
+      env:
+        SD_BRANCH: ${{ github.head_ref || github.ref_name }}
+        SD_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        SD_COMMIT_MSG: ${{ github.event.pull_request.title || github.event.head_commit.message }}
+        SD_PR_URL: ${{ github.event.pull_request.html_url }}
+        SD_PAGES_JSON: ${{ steps.parse-pages.outputs.pages_json }}
+      run: |
+        # Build the request body via jq so commit messages with quotes/backticks
+        # can't break out of the shell context, and so we omit pull_request_url
+        # entirely when it's empty (the API rejects "" via z.string().url()).
+        BODY=$(jq -n \
+          --arg branch "$SD_BRANCH" \
+          --arg sha "$SD_COMMIT_SHA" \
+          --arg msg "$SD_COMMIT_MSG" \
+          --arg pr "$SD_PR_URL" \
+          --argjson pages "$SD_PAGES_JSON" \
+          '{
+            branch: $branch,
+            commit_sha: $sha,
+            pages: $pages
+          }
+          + (if $msg != "" then {commit_message: $msg} else {} end)
+          + (if $pr  != "" then {pull_request_url: $pr} else {} end)')
+
+        RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+          "${{ inputs.api-url }}/v1/projects/${{ inputs.project }}/builds" \
+          -H "Content-Type: application/json" \
+          -H "X-API-Key: ${{ inputs.api-key }}" \
+          -d "$BODY")
+
+        HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+        BODY=$(echo "$RESPONSE" | head -n -1)
+
+        if [ "$HTTP_CODE" != "202" ]; then
+          echo "::error::SnapDiff API returned $HTTP_CODE: $BODY"
+          exit 1
+        fi
+
+        BUILD_ID=$(echo "$BODY" | jq -r '.id')
+        POLL_URL=$(echo "$BODY" | jq -r '.poll_url')
+        echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
+        echo "poll_url=$POLL_URL" >> $GITHUB_OUTPUT
+        echo "review_url=${{ inputs.api-url }}/dashboard/builds/$BUILD_ID" >> $GITHUB_OUTPUT
+        echo "::notice::SnapDiff build created: $BUILD_ID"
+
+    - name: Wait for build completion
+      id: poll-build
+      if: inputs.wait == 'true'
+      shell: bash
+      run: |
+        BUILD_ID="${{ steps.create-build.outputs.build_id }}"
+        POLL_URL="${{ inputs.api-url }}${{ steps.create-build.outputs.poll_url }}"
+        # 12 polls per minute (5s interval) × wait-timeout minutes
+        MAX_ATTEMPTS=$(( ${{ inputs.wait-timeout }} * 12 ))
+        ATTEMPT=0
+
+        echo "Waiting for build $BUILD_ID to complete (timeout: ${{ inputs.wait-timeout }}m)..."
+
+        while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+          ATTEMPT=$((ATTEMPT + 1))
+          sleep 5
+
+          RESPONSE=$(curl -s "$POLL_URL" -H "X-API-Key: ${{ inputs.api-key }}")
+          STATUS=$(echo "$RESPONSE" | jq -r '.status')
+
+          if [ "$STATUS" = "approved" ]; then
+            TOTAL=$(echo "$RESPONSE" | jq -r '.total_snapshots')
+            echo "status=approved" >> $GITHUB_OUTPUT
+            echo "changed_count=0" >> $GITHUB_OUTPUT
+            echo "::notice::✅ All $TOTAL pages match baselines — no visual changes"
+            exit 0
+          elif [ "$STATUS" = "changes_requested" ]; then
+            CHANGED=$(echo "$RESPONSE" | jq -r '.changed_count')
+            TOTAL=$(echo "$RESPONSE" | jq -r '.total_snapshots')
+            echo "status=changes_requested" >> $GITHUB_OUTPUT
+            echo "changed_count=$CHANGED" >> $GITHUB_OUTPUT
+            echo "::warning::🔍 $CHANGED of $TOTAL pages changed — review at ${{ steps.create-build.outputs.review_url }}"
+            exit 1
+          elif [ "$STATUS" = "failed" ]; then
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "changed_count=0" >> $GITHUB_OUTPUT
+            echo "::error::❌ Visual regression test failed"
+            exit 1
+          fi
+
+          echo "  Build status: $STATUS (attempt $ATTEMPT/$MAX_ATTEMPTS)"
+        done
+
+        echo "::error::Build timed out after $MAX_ATTEMPTS attempts"
+        exit 1

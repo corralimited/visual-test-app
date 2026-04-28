@@ -20,7 +20,7 @@ jobs:
         run: sleep 60
 
       - name: Run SnapDiff visual test
-        uses: corralimited/snapdiff/github-action@dev
+        uses: ./.github/actions/snapdiff
         with:
           api-key: ${{ secrets.SNAPDIFF_API_KEY }}
           api-url: https://snapdiff-production.up.railway.app

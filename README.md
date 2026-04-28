@@ -2,6 +2,8 @@
 
 A static site that exists purely to exercise the SnapDiff GitHub Action against a real, deployed site. Hosted via GitHub Pages, snapped on every push.
 
+The SnapDiff action is **vendored** in `.github/actions/snapdiff/action.yml` (instead of referenced as `corralimited/snapdiff/github-action@dev`) so this repo can run without needing access to the private snapdiff repo. To update the action, copy a fresh `github-action/action.yml` from the snapdiff repo over the vendored copy and commit.
+
 Pages cover four distinct visual scenarios:
 
 | Page | Tests |
