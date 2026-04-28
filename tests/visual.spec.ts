@@ -8,12 +8,16 @@ import { test, expect } from '@snapdiff/playwright';
 // Note: GitHub Pages serves under a subpath (/visual-test-app/), so we use
 // full URLs rather than Playwright's baseURL + leading-slash combo, which
 // would resolve `/index.html` against the host root and 404.
+//
+// Assertions intentionally check *structure*, not copy. A heading text change
+// is a visual change we want SnapDiff to flag, not a functional failure.
 const SITE_URL =
   process.env.SITE_URL ?? 'https://corralimited.github.io/visual-test-app';
 
 test('homepage renders with hero, nav, and feature cards', async ({ page, snapshot }) => {
   await page.goto(`${SITE_URL}/index.html`);
-  await expect(page.locator('h1')).toContainText('Ship');
+  await expect(page.locator('h1')).toBeVisible();
+  await expect(page.locator('.card')).toHaveCount(3);
   await snapshot('homepage-rep');
 });
 
