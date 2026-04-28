@@ -29,7 +29,8 @@ export default defineConfig({
     ],
   ],
   use: {
-    baseURL: process.env.SITE_URL ?? 'https://corralimited.github.io/visual-test-app',
+    // No baseURL — tests use full URLs because the GitHub Pages subpath
+    // doesn't play nicely with Playwright's leading-slash relative resolution.
     viewport: { width: 1280, height: 720 },
     deviceScaleFactor: 1,
     actionTimeout: 10_000,
