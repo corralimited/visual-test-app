@@ -246,8 +246,12 @@ runs:
             TOTAL=$(echo "$RESPONSE" | jq -r '.total_snapshots')
             echo "status=changes_requested" >> $GITHUB_OUTPUT
             echo "changed_count=$CHANGED" >> $GITHUB_OUTPUT
-            echo "::warning::🔍 $CHANGED of $TOTAL pages changed — review at ${{ steps.create-build.outputs.review_url }}"
-            exit 1
+            echo "::notice::🔍 $CHANGED of $TOTAL pages changed — pending review at ${{ steps.create-build.outputs.review_url }}"
+            # Exit 0 — the merge gate is the `snapdiff/visual-test` commit
+            # status (set to "pending" by SnapDiff via the GitHub API), not the
+            # workflow check itself. Workflow stays green; merge stays blocked
+            # via the pending status until a reviewer accepts in the dashboard.
+            exit 0
           elif [ "$STATUS" = "failed" ]; then
             echo "status=failed" >> $GITHUB_OUTPUT
             echo "changed_count=0" >> $GITHUB_OUTPUT
