@@ -84,11 +84,24 @@ runs:
         SD_REPO: ${{ github.repository }}
         SD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         SD_EVENT: ${{ github.event_name }}
+        SD_PAGES_INPUT: ${{ inputs.pages }}
       run: |
         # If the user passed an explicit preview-url, skip discovery.
         if [ -n "$SD_PREVIEW_URL_OVERRIDE" ]; then
           echo "Using explicit preview-url: $SD_PREVIEW_URL_OVERRIDE"
           echo "preview_url=${SD_PREVIEW_URL_OVERRIDE%/}" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        # If every page is a fully-qualified URL (http/https), discovery is
+        # unnecessary — the URLs go straight through as-is. This makes the
+        # action work for hosts that don't write GitHub Deployments (GitHub
+        # Pages, FTP-deployed marketing sites, etc.) so long as the customer
+        # provides absolute URLs.
+        NON_URL_PAGES=$(printf '%s\n' "$SD_PAGES_INPUT" | awk -F= '/=/ {sub(/^[ \t]+/, "", $2); print $2}' | grep -v '^https\?://' | grep -v '^[[:space:]]*$' || true)
+        if [ -z "$NON_URL_PAGES" ]; then
+          echo "All pages are absolute URLs — skipping deployment discovery."
+          echo "preview_url=" >> "$GITHUB_OUTPUT"
           exit 0
         fi
 
