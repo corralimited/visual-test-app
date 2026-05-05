@@ -1,4 +1,4 @@
-import { test, expect } from '@snapdiff/playwright';
+import { test, expect } from '@corralimited/snapdiff-playwright';
 
 // Page names are suffixed with `-rep` to keep their baselines distinct from
 // the URL-mode action's baselines (which use plain names like `homepage`).

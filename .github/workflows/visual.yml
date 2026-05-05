@@ -1,9 +1,10 @@
-name: Visual diff
+name: Visual diff (URL action — manual only)
 
+# Disabled auto-triggers while testing the Playwright reporter flow in
+# reporter.yml. Both workflows hitting the same project on the same commit
+# would create racing builds. Re-enable push/pull_request when you want to
+# exercise URL-mode again.
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -20,7 +21,7 @@ jobs:
         run: sleep 60
 
       - name: Run SnapDiff visual test
-        uses: ./.github/actions/snapdiff
+        uses: corralimited/snapdiff-action@v1
         with:
           api-key: ${{ secrets.SNAPDIFF_API_KEY }}
           api-url: https://snapdiff-production.up.railway.app

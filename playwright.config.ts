@@ -5,7 +5,7 @@ import { defineConfig, devices } from '@playwright/test';
  *
  * Two reporters:
  *   - `list` — normal Playwright console output
- *   - `@snapdiff/playwright/reporter` — uploads each captured snapshot, creates
+ *   - `@corralimited/snapdiff-playwright/reporter` — uploads each captured snapshot, creates
  *     a SnapDiff build, and gates the run on visual changes
  *
  * Tests target SITE_URL (the deployed GitHub Pages URL). Set SNAPDIFF_API_KEY
@@ -20,7 +20,7 @@ export default defineConfig({
   reporter: [
     ['list'],
     [
-      '@snapdiff/playwright/reporter',
+      '@corralimited/snapdiff-playwright/reporter',
       {
         // Slug provided by repo variable so URL action and reporter share one project.
         project: process.env.SNAPDIFF_PROJECT_SLUG ?? 'visual-test-app',
